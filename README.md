@@ -1,6 +1,3 @@
 
-$src = "$env:USERPROFILE\Downloads\icms-parent-links-fix-plain-base64.txt"
-$archive = "$env:USERPROFILE\Downloads\icms-parent-links-fix.tar.gz"
-[IO.File]::WriteAllBytes($archive, [Convert]::FromBase64String([IO.File]::ReadAllText($src)))
-
-tar -xzf $archive -C .
+$appProcessId = (Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess
+Get-CimInstance Win32_Process -Filter "ProcessId=$appProcessId" | Select-Object ProcessId,Name,CommandLine
