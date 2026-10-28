@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Legal Entities')}"></head>
+<body>
+<header th:replace="~{layout :: header}"></header>
+<main id="main" class="page-enter" tabindex="-1">
+  <div class="heading-row">
+    <div><p class="eyebrow">Ultimate Parent Relationship</p><h1>Legal Entities to review</h1><p class="subtext">Active Legal Entities whose Booking Code records lead to more than one Ultimate Parent.</p></div>
+    <p class="count-label"><strong th:text="${#numbers.formatInteger(count,1,'COMMA')}">0</strong><span th:text="${q.isEmpty() ? 'Legal Entities' : 'matching Legal Entities'}">Legal Entities</span></p>
+  </div>
+  <div class="toolbar">
+    <form th:action="@{/companies}" method="get" class="search-form" data-loading>
+      <div class="search-field"><label for="q">Find a Legal Entity</label><input id="q" name="q" type="search" maxlength="120" th:value="${q}" placeholder="Legal Entity name or ID" autocomplete="off"></div>
+      <input name="size" type="hidden" th:value="${result.size}">
+      <button class="button primary" type="submit">Search</button>
+      <a th:if="${!q.isEmpty()}" class="button quiet" th:href="@{/companies(size=${result.size})}">Clear</a>
+    </form>
+    <form th:action="@{/companies}" method="get" class="page-size" data-loading>
+      <input type="hidden" name="q" th:value="${q}"><label for="size">Rows per page</label>
+      <select name="size" id="size" data-submit><option th:each="option : ${ {10,25,50} }" th:value="${option}" th:selected="${option == result.size}" th:text="${option}"></option></select>
+      <noscript><button class="button small">Apply</button></noscript>
+    </form>
+  </div>
+  <div th:if="${result.items.isEmpty()}" class="empty-state">
+    <h2 th:text="${result.page > 0 ? 'No Legal Entities on this page' : 'No matching Legal Entities'}">No matching Legal Entities</h2>
+    <p th:text="${result.page > 0 ? 'The result may have changed. Return to the first page.' : 'Try another Legal Entity name or ID.'}"></p>
+    <a class="button" th:href="@{/companies(q=${q},size=${result.size})}">First page</a>
+  </div>
+  <div class="table-wrap" th:unless="${result.items.isEmpty()}">
+    <table class="company-table"><thead><tr><th scope="col">Legal Entity</th><th scope="col">ID</th><th scope="col">Ultimate Parents</th><th scope="col"><span class="sr-only">Open review</span></th></tr></thead>
+      <tbody><tr th:each="company : ${result.items}">
+        <td><a class="company-name" th:href="@{/companies/{id}(id=${company.companyId},q=${q},page=${result.page},size=${result.size})}" th:text="${company.companyName ?: 'Legal Entity ' + company.companyId}"></a><span class="company-mobile-id code" th:text="${company.companyId}"></span></td>
+        <td class="code" th:text="${company.companyId}"></td>
+        <td><span class="parent-number number" th:text="${#numbers.formatInteger(company.candidateParentCount,1,'COMMA')}"></span></td>
+        <td class="table-action"><a th:href="@{/companies/{id}(id=${company.companyId},q=${q},page=${result.page},size=${result.size})}" th:aria-label="'Review ' + ${company.companyName ?: company.companyId}">View review <span aria-hidden="true">→</span></a></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <nav class="pager" aria-label="Legal Entity pages" th:unless="${result.items.isEmpty()}">
+    <span th:text="'Showing ' + ${result.page * result.size + 1} + '–' + ${result.page * result.size + result.items.size()} + ' of ' + ${#numbers.formatInteger(count,1,'COMMA')}"></span>
+    <div class="pager-actions">
+      <a th:if="${result.page > 0}" class="button small" th:href="@{/companies(q=${q},page=${result.page - 1},size=${result.size})}">Previous</a><button th:unless="${result.page > 0}" class="button small" disabled>Previous</button>
+      <span th:text="'Page ' + ${result.page + 1}"></span>
+      <a th:if="${result.hasNext}" class="button small" th:href="@{/companies(q=${q},page=${result.page + 1},size=${result.size})}">Next</a><button th:unless="${result.hasNext}" class="button small" disabled>Next</button>
+    </div>
+  </nav>
+  <p class="scope-note" th:if="${demo}">Fictional Legal Entities for trying the app. No bank database is connected.</p>
+  <p class="scope-note" th:unless="${demo}">These are candidate parent links. Open a Legal Entity to see the Booking Code records and checks behind the result.</p>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+<div class="sr-only" role="status" id="announcement" aria-live="polite"></div>
+</body>
+</html>

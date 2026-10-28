@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
+  <title th:text="${title} + ' · ICMS'">Legal Entity review · ICMS</title>
+  <link rel="stylesheet" th:href="@{/assets/review.css}">
+  <script th:src="@{/assets/review.js}" defer></script>
+</head>
+<body>
+<header th:fragment="header" class="app-header">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <a class="brand" th:href="@{/companies}"><span class="brand-mark" aria-hidden="true">i</span><span>Legal Entity review</span></a>
+  <span th:if="${demo}" class="environment">Demo data</span>
+  <span class="header-note">Day 1 · Ultimate Parents</span>
+</header>
+<footer th:fragment="footer" class="app-footer"><span>ICMS Legal Entity and Booking Code evidence</span><span>Source refresh time unknown</span></footer>
+</body>
+</html>
