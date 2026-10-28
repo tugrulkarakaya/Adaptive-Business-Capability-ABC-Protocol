@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head(${review.company.companyName ?: 'Company review'})}"></head>
+<body>
+<header th:replace="~{layout :: header}"></header>
+<main id="main" class="page-enter" tabindex="-1">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a th:href="@{/companies(q=${q},page=${page},size=${size})}">← Companies</a><span>/</span><span>Company review</span></nav>
+  <div><p class="eyebrow">Company review</p><h1 th:text="${review.company.companyName ?: 'Company ' + review.company.companyId}"></h1>
+    <div class="company-meta"><span class="code" th:text="'ICMS ' + ${review.company.companyId}"></span><span class="badge active" th:class="${review.company.icmsStatus == 'Active' ? 'badge active' : 'badge neutral'}" th:text="${review.company.icmsStatus ?: 'Status unknown'}"></span><span th:if="${review.summary != null}">Active ICMS Booking Code scope</span></div>
+  </div>
+  <div th:if="${review.summary == null}" class="empty-state section"><h2>Review unavailable</h2><p th:text="${review.message}"></p><a class="button" th:href="@{/companies(q=${q},page=${page},size=${size})}">Back to companies</a></div>
+  <th:block th:if="${review.summary != null}">
+    <div class="overview-band" aria-label="Company summary">
+      <div class="overview-item"><p class="overview-value" th:text="${#numbers.formatInteger(review.summary.parentCount,1,'COMMA')}"></p><p class="overview-label">Ultimate Parents</p></div>
+      <div class="overview-item"><p class="overview-value" th:text="${#numbers.formatInteger(review.summary.bookingCount,1,'COMMA')}"></p><p class="overview-label">Active Booking Code records</p></div>
+      <div class="overview-item"><p class="overview-value" th:text="${#numbers.formatInteger(review.summary.bookingsWithWarnings,1,'COMMA')}"></p><p class="overview-label">Booking Codes with warnings</p></div>
+    </div>
+    <div class="review-layout">
+      <div class="review-main">
+        <section id="parents">
+          <div class="section-heading"><div><h2>Where the Booking Code links lead</h2><p>A Booking Code can appear under more than one Ultimate Parent.</p></div></div>
+          <div class="table-wrap"><table class="parent-table"><thead><tr><th scope="col">Ultimate Parent</th><th scope="col">Status</th><th scope="col">Booking Codes</th></tr></thead><tbody>
+            <tr th:each="parent : ${review.parents.items}"><td><p class="parent-name" th:text="${parent.name ?: 'Name unavailable'}"></p><p class="parent-id code" th:text="${parent.parentId}"></p><p class="parent-id" th:if="${parent.nameState == 'AMBIGUOUS'}">More than one name in the source</p></td>
+              <td><span th:class="${parent.hasFlaggedStatus ? 'badge warning' : 'badge neutral'}" th:text="${parent.statuses ?: 'Unknown'}"></span><p class="parent-id" th:if="${parent.statusState != 'COMPLETE'}">Some status data is missing</p></td>
+              <td class="parent-stats"><strong class="number" th:text="${parent.bookingCount}"></strong><span> records</span><br><span class="muted" th:text="${parent.uniqueBookingCodes} + ' codes · ' + ${parent.relationshipHolderCount} + ' RHPs'"></span></td></tr>
+          </tbody></table></div>
+          <nav th:if="${review.parents.page > 0 || review.parents.hasNext}" class="pager" aria-label="Parent pages"><span th:text="'Parent page ' + ${review.parents.page + 1}"></span><div class="pager-actions">
+            <a th:if="${review.parents.page > 0}" class="button small" th:href="@{/companies/{id}(id=${review.company.companyId},q=${q},page=${page},size=${size},parentPage=${review.parents.page - 1})} + '#parents'">Previous</a>
+            <a th:if="${review.parents.hasNext}" class="button small" th:href="@{/companies/{id}(id=${review.company.companyId},q=${q},page=${page},size=${size},parentPage=${review.parents.page + 1})} + '#parents'">Next parents</a>
+          </div></nav>
+        </section>
+        <section id="checks" class="section">
+          <div class="section-heading"><div><h2>What needs attention</h2><p>Six Day 1 checks, in Confluence’s review order.</p></div></div>
+          <div class="table-wrap"><table class="checks-table"><thead><tr><th scope="col">Check</th><th scope="col">Flagged</th><th scope="col">Unknown</th><th scope="col">Not checked</th></tr></thead><tbody>
+            <tr th:each="check : ${review.summary.checks}"><td><span th:text="${check.label}"></span><span class="check-condition" th:text="${check.warningCondition}"></span><span class="check-rule" th:text="${check.rule}"></span></td>
+              <td><span th:class="${check.warningCount > 0 ? 'badge warning number' : 'zero-count number'}" th:text="${check.warningCount}"></span></td>
+              <td><span th:class="${check.unknownCount > 0 ? 'badge neutral number' : 'zero-count number'}" th:text="${check.unknownCount}"></span></td>
+              <td><span th:class="${check.notCheckedCount > 0 ? 'badge neutral number' : 'zero-count number'}" th:text="${check.notCheckedCount}"></span></td></tr>
+          </tbody></table></div>
+          <p class="check-help">Counts are booking records and can overlap. Confirmation lookup is not attempted when settlement routes are zero. A warning point is a review signal, not a confidence rating.</p>
+        </section>
+      </div>
+      <aside class="review-side" aria-label="Review guidance">
+        <section class="next-step"><p class="eyebrow">Suggested next check</p><h3 th:text="${nextStep.title}"></h3><p th:text="${nextStep.explanation}"></p><a href="#checks">See the checks <span aria-hidden="true">↓</span></a></section>
+        <div><p class="side-context"><strong th:text="${review.summary.activeContacts} + ' active contacts'"></strong><br>Linked to this ICMS company.</p>
+          <p class="side-context"><strong th:text="${review.summary.fullyScoredBookings} + ' of ' + ${review.summary.bookingCount} + ' Booking Codes fully scored'"></strong><br>A complete score is available only when all six checks are answered.</p>
+          <p class="side-context">This review helps identify the next investigation. Any record change needs the company’s operational checks.</p>
+        </div>
+      </aside>
+    </div>
+    <details class="missing-info"><summary>Missing information <span class="badge neutral" th:text="${review.summary.bookingsWithUnknowns} + ' bookings with unanswered checks'"></span></summary><ul>
+      <li th:if="${review.summary.bookingsWithUnknowns > 0}">Some booking checks are unanswered or deliberately skipped. Open the booking evidence to see which ones.</li>
+      <li>The extra ICMS-to-cRDS company match and the current-versus-historical hierarchy policy need confirmation.</li>
+      <li>The ICMS screen’s cRDS ID lookup and active-contact company names on platforms are not yet available.</li>
+      <li>Recent trading, parent associations and operational impact have not been assessed in this Day 1 app.</li>
+    </ul></details>
+    <details class="evidence-section" id="evidence" th:data-evidence-url="@{/companies/{id}/evidence(id=${review.company.companyId})}"><summary>Show booking evidence <span class="muted">Codes, statuses, routes and source details</span></summary>
+      <div data-evidence-content><p class="record-note">Open the records behind the company summary.</p><noscript><a th:href="@{/companies/{id}/evidence(id=${review.company.companyId})}">Open booking evidence</a></noscript></div>
+    </details>
+    <p class="scope-note" th:text="'Checked ' + ${checkedAt} + ' · Summary covers the whole company; booking evidence is paged.'"></p>
+  </th:block>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+<div class="sr-only" role="status" id="announcement" aria-live="polite"></div>
+</body>
+</html>
