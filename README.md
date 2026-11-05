@@ -12,11 +12,11 @@ The terminal needs these Oracle settings:
 - `SPRING_DATASOURCE_USERNAME`
 - `SPRING_DATASOURCE_PASSWORD`
 
-If they are not already loaded, set them in that terminal. Replace the example values below with your own connection details. Do not save real credentials in this repository.
+If they are not already loaded, set them in that terminal. The URL and username below are from the saved Oracle configuration. Enter the password when prompted; do not save it in this repository.
 
 ```powershell
-$env:SPRING_DATASOURCE_URL = 'jdbc:oracle:thin:@//HOST:1521/SERVICE'
-$env:SPRING_DATASOURCE_USERNAME = 'YOUR_USERNAME'
+$env:SPRING_DATASOURCE_URL = 'jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCPS)(HOST=fricm2d.de.db.com)(PORT=1801)))(CONNECT_DATA=(SERVICE_NAME=fricm2d_app.de.db.com)))'
+$env:SPRING_DATASOURCE_USERNAME = 'GMDEV'
 $oraclePassword = Read-Host 'Oracle password' -AsSecureString
 $env:SPRING_DATASOURCE_PASSWORD = [System.Net.NetworkCredential]::new('', $oraclePassword).Password
 ```
