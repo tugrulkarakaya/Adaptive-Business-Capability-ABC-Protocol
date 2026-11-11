@@ -6,16 +6,38 @@ This file lists the GLEIF CSV files and exact column names we use. It explains w
 
 The source files are from the saved GLEIF publication dated 15 October 2026, 08:00 UTC. These usage notes describe the local version reviewed on 11 November 2026. This does not confirm which version is running on the remote machine.
 
-## How to read the usage labels
+## How we use the data: fixed checks, AI input, or storage only
 
-- Identifier and checks: identifies records, supports comparisons and provides review context.
-- Checks and context: used in checks and provided as review context.
-- Related-record lookup: used to find related records.
-- Context only: provided to the reviewer or AI as background. It does not decide a match on its own.
-- Saved only: saved, but not currently used in the review.
-- Not saved: present in the source CSV, but not saved.
+There are two different ways to use a field:
 
-Evidence is bounded and depends on which entities are reviewed. Inclusion in the catalog does not mean that every row is sent to AI. Candidate fields remain unconfirmed until identity is checked.
+- Fixed checks (deterministic checks): a predefined comparison or condition. It does not need AI. For example, a status must be ACTIVE before we accept a current consolidation relationship. This is one required condition, not proof on its own.
+- AI input: information included in a request to the AI to help it assess and explain the selected case. The reviewer can also inspect this information. A field can influence the AI's interpretation without having a separate fixed check.
+
+A field can be used in BOTH ways. Saving a field does not mean that we use it in either way.
+
+The labels in column E (usage) of GLEIF-field-map.csv mean:
+
+| Column E label | Used in fixed checks? | Included in AI input? |
+| --- | --- | --- |
+| ID checks + AI input | Yes. Used to find and compare records by ID. | Yes, when the record is selected for an AI review. |
+| Fixed checks + AI input | Yes. Used in a predefined check. | Yes, when the record is selected for an AI review. |
+| Lookup for AI evidence | Used to find related information. This lookup alone makes no match decision. | Indirectly: it retrieves the exception details supplied to the AI. |
+| AI input only | No separate fixed check uses this field. | Yes, as background for the selected case. It can influence the AI's interpretation. |
+| Saved, not used | No. | No. We only keep it for possible later use. |
+| Not saved | No. | No. The field exists in the source CSV, but we do not save it. |
+
+"AI input only" replaces the earlier label "Context only". It means that the field is provided as background to the AI and reviewer; it does NOT mean that the field is unused. It also does not establish a match on its own.
+
+"Included in AI input" describes what is available for an AI review. It is not a record of an actual AI request. An AI review must run, the relevant record must be selected, and the value must be available. We do not send every row in the source CSV. A possible name match remains a candidate until identity is confirmed.
+
+Examples using the original CSV fields:
+
+- lei2 -> Entity.EntityStatus -> fixed checks AND AI input. A fixed check requires ACTIVE for a current consolidation conclusion. The AI can also use the status when explaining the case.
+- lei2 -> Entity.EntityCategory -> AI input only. The AI receives the category as company background. We have no separate fixed matching check for this field.
+- lei2 -> Entity.LegalName -> fixed checks AND AI input. We use the name to find possible matches and compare names. The AI can also see it. A similar name alone does not confirm identity.
+- repex -> LEI -> lookup for AI evidence. We use the ID to find the entity's parent-reporting exceptions. The exception categories and reasons provide background to the AI.
+- rr -> Registration.ManagingLOU -> saved, not used. We save it, but it is not currently used in fixed checks or AI input.
+- repex -> Exception.Reference.1 -> not saved. We do not retain or use this field.
 
 ## Source files and coverage
 
@@ -42,17 +64,17 @@ These are the core identity fields. The names below are the original CSV column 
 
 | Exact CSV field | Usage | Purpose |
 | --- | --- | --- |
-| LEI | Identifier and checks | Finds the entity, compares LEIs, and links relationship and successor records. |
-| Entity.LegalName | Checks and context | Name candidate retrieval and internal-name cross-check; also shown as public identity. |
-| Entity.LegalJurisdiction | Checks and context | Checks a supplied jurisdiction when confirming an LEI or registry match. |
-| Entity.LegalAddress.Country | Checks and context | Compares legal-address country with the internal country observation; also retained in extended details. |
-| Entity.EntityCategory | Context only | Entity category included in the public-identity evidence. |
-| Entity.EntityStatus | Checks and context | ACTIVE is required for current consolidation conclusions. |
-| Registration.RegistrationStatus | Checks and context | ISSUED is required for current consolidation conclusions. |
-| Entity.RegistrationAuthority.RegistrationAuthorityID | Checks and context | Used together with the registry ID for an unambiguous identifier match. |
-| Entity.RegistrationAuthority.RegistrationAuthorityEntityID | Checks and context | Registry identifier lookup, paired with the authority. |
-| Registration.LastUpdateDate | Context only | Shows when the public record was updated. This date alone does not determine whether the record is current. |
-| Registration.NextRenewalDate | Checks and context | Must be present and not before the catalog date for current consolidation conclusions. |
+| LEI | ID checks + AI input | Finds the entity, compares LEIs, and links relationship and successor records. |
+| Entity.LegalName | Fixed checks + AI input | Name candidate retrieval and internal-name cross-check; also shown as public identity. |
+| Entity.LegalJurisdiction | Fixed checks + AI input | Checks a supplied jurisdiction when confirming an LEI or registry match. |
+| Entity.LegalAddress.Country | Fixed checks + AI input | Compares legal-address country with the internal country observation; also retained in extended details. |
+| Entity.EntityCategory | AI input only | Gives the AI and reviewer the entity category as background. No separate fixed check uses this field to confirm a match. |
+| Entity.EntityStatus | Fixed checks + AI input | A fixed check requires ACTIVE before accepting a current consolidation relationship. The status is also available to the AI and reviewer. |
+| Registration.RegistrationStatus | Fixed checks + AI input | A fixed check requires ISSUED before accepting a current consolidation relationship. The status is also available to the AI and reviewer. |
+| Entity.RegistrationAuthority.RegistrationAuthorityID | Fixed checks + AI input | Used together with the registry ID for an unambiguous identifier match. |
+| Entity.RegistrationAuthority.RegistrationAuthorityEntityID | Fixed checks + AI input | Registry identifier lookup, paired with the authority. |
+| Registration.LastUpdateDate | AI input only | Shows the AI and reviewer when the public record was updated. No separate fixed check uses this date to decide whether the record is current. |
+| Registration.NextRenewalDate | Fixed checks + AI input | Must be present and not before the catalog date for current consolidation conclusions. |
 
 ### Repeated names, events and successors
 
@@ -115,8 +137,8 @@ We save all 54 source columns. The following five fields identify and classify e
 | Relationship.StartNode.NodeID | Starting entity; used to retrieve outgoing relationships. |
 | Relationship.EndNode.NodeID | Other endpoint; used for direct links, shared ultimate parents and related-entity lookups. |
 | Relationship.RelationshipType | Distinguishes consolidation from branch/fund relationships; selects direct and ultimate consolidation rules. |
-| Relationship.RelationshipStatus | ACTIVE is required by the current-conclusion rule. |
-| Registration.RegistrationStatus | PUBLISHED is required by the current-conclusion rule. |
+| Relationship.RelationshipStatus | A fixed check requires ACTIVE before accepting the relationship as current. The status is also available to the AI and reviewer. |
+| Registration.RegistrationStatus | A fixed check requires PUBLISHED before accepting the relationship as current. The status is also available to the AI and reviewer. |
 
 Interpret Relationship.StartNode.NodeID and Relationship.EndNode.NodeID together with Relationship.RelationshipType. For a fund or branch relationship, the end node is not automatically an owner.
 
@@ -163,13 +185,22 @@ Exception.Reference.1 through Exception.Reference.5 are not retained. Exceptions
 - Explicit successor evidence uses SuccessorLEI. The merger interpretation also requires a COMPLETED MERGERS_AND_ACQUISITIONS event with an effective date at or before the catalog date.
 - Background information alone does not prove a relationship.
 
-## 6. How to find a field in the source CSV
+## 6. How to read the field list
 
-1. Open GLEIF-field-map.csv.
-2. Read source_csv to identify the GLEIF file.
-3. Read source_column for the exact header in that file.
-4. Read usage and purpose to see how we use it.
-5. retained=YES means we save the field. It does not necessarily mean we use it in a decision. Saved only identifies fields that we save without using in the current review.
+Open GLEIF-field-map.csv. The columns are:
+
+| Column | Name | What it tells you |
+| --- | --- | --- |
+| A | source_dataset | Which of the three GLEIF datasets contains the field. |
+| B | source_csv | The exact source CSV filename. |
+| C | source_column | The exact column header in that CSV. |
+| D | retained | YES means we save the field. This does not mean that we use it in a check or send it to AI. |
+| E | usage | A short summary: fixed checks, AI input, both, lookup, saved only, or not saved. |
+| F | purpose | What this particular field is used for. |
+| G | fixed_check_use | Whether it is used in a fixed check or only to find another record. |
+| H | ai_input_use | Whether it is included in the selected AI review, used indirectly to retrieve evidence, or not used. |
+
+Columns G and H make the distinction explicit. The label definitions earlier in this document use exactly the same wording as column E.
 
 Examples:
 - 20261015-0800-gleif-goldencopy-lei2-golden-copy.csv -> Entity.LegalName -> company name search and comparison.
