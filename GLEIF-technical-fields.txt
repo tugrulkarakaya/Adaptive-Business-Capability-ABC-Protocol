@@ -1,0 +1,171 @@
+# GLEIF CSV field map
+
+Checked: 11 November 2026.
+
+This file maps the fields in the three saved GLEIF CSVs to our local catalog and review code. Exact CSV names are preserved. The companion CSV has one row for every source column, including fields we do not retain.
+
+This is a review of the local working-tree implementation, schema version 2. It is not confirmation of the version running on the remote machine. The saved source publication is 15 October 2026, 08:00 UTC. Some reviewed files are local/uncommitted; the content hashes in audit.json identify the inspected versions.
+
+## How to read the usage labels
+
+- KEY_AND_RULE: used for identity or relationship lookup/comparison, and available in evidence.
+- RULE_AND_EVIDENCE: read by a coded check and included in evidence.
+- LOOKUP_KEY: used to retrieve related records.
+- EVIDENCE_ONLY: passed to the reviewer/AI as context; no independent coded decision rule for that field.
+- STORED_ONLY: retained in the catalog, but not selected by the inspected evidence builder.
+- NOT_RETAINED: present in the source header, but not saved by this importer.
+
+Evidence is bounded and depends on which entities are reviewed. Inclusion in the catalog does not mean that every row is sent to AI. Candidate fields remain unconfirmed until identity is checked.
+
+## Source files and coverage
+
+| Dataset | CSV columns | Retained | Not retained |
+| --- | ---: | ---: | ---: |
+| lei2 | 338 | 251 | 87 |
+| rr | 54 | 54 | 0 |
+| repex | 12 | 7 | 5 |
+
+These are column counts in the saved publication, not populated values or company counts. The test checks import capability for each field; it does not claim that every field contains real data.
+
+- lei2: 20261015-0800-gleif-goldencopy-lei2-golden-copy.csv
+  Source URL: https://leidata-preview.gleif.org/storage/golden-copy-files/2026/10/15/1288775/20261015-0800-gleif-goldencopy-lei2-golden-copy.csv.zip
+- rr: 20261015-0800-gleif-goldencopy-rr-golden-copy.csv
+  Source URL: https://leidata-preview.gleif.org/storage/golden-copy-files/2026/10/15/1288820/20261015-0800-gleif-goldencopy-rr-golden-copy.csv.zip
+- repex: 20261015-0800-gleif-goldencopy-repex-golden-copy.csv
+  Source URL: https://leidata-preview.gleif.org/storage/golden-copy-files/2026/10/15/1288865/20261015-0800-gleif-goldencopy-repex-golden-copy.csv.zip
+
+## 1. Company identity: lei2
+
+The core fields below are mapped to named columns. Full storage paths, including secondary name indexes and duplicated country context, are in GLEIF-field-map.csv.
+
+| Exact CSV field | Main SQLite field | Usage | Purpose |
+| --- | --- | --- | --- |
+| LEI | entities.lei | KEY_AND_RULE | Entity lookup, same-LEI comparison, relationship and successor joins. |
+| Entity.LegalName | entities.legal_name | RULE_AND_EVIDENCE | Name candidate retrieval and internal-name cross-check; also shown as public identity. |
+| Entity.LegalJurisdiction | entities.jurisdiction | RULE_AND_EVIDENCE | Checks a supplied jurisdiction when confirming an LEI or registry match. |
+| Entity.LegalAddress.Country | entities.country | RULE_AND_EVIDENCE | Compares legal-address country with the internal country observation; also retained in extended details. |
+| Entity.EntityCategory | entities.category | EVIDENCE_ONLY | Entity category included in the public-identity evidence. |
+| Entity.EntityStatus | entities.entity_status | RULE_AND_EVIDENCE | ACTIVE is required for current consolidation conclusions. |
+| Registration.RegistrationStatus | entities.registration_status | RULE_AND_EVIDENCE | ISSUED is required for current consolidation conclusions. |
+| Entity.RegistrationAuthority.RegistrationAuthorityID | entities.authority | RULE_AND_EVIDENCE | Used together with the registry ID for an unambiguous identifier match. |
+| Entity.RegistrationAuthority.RegistrationAuthorityEntityID | entities.registry_id | RULE_AND_EVIDENCE | Registry identifier lookup, paired with the authority. |
+| Registration.LastUpdateDate | entities.updated_at | EVIDENCE_ONLY | Public record update date. Not a standalone freshness decision in the inspected entity code. |
+| Registration.NextRenewalDate | entities.renewal_at | RULE_AND_EVIDENCE | Must be present and not before the catalog date for current consolidation conclusions. |
+
+### Repeated names, events and successors
+
+n means each number from 1 to 5. The companion CSV expands every name below into its exact numbered source columns.
+
+- Entity.OtherEntityNames.OtherEntityName.n -> entities.aliases_json[].name and names.name. Used for name search and name agreement checks.
+- Entity.OtherEntityNames.OtherEntityName.n.type -> alias kind and names.kind. Describes the name.
+- Entity.TransliteratedOtherEntityNames.TransliteratedOtherEntityName.n -> the same alias and name stores.
+- Entity.TransliteratedOtherEntityNames.TransliteratedOtherEntityName.n.type -> the same kind fields.
+- Entity.SuccessorEntity.n.SuccessorLEI -> entities.successors_json[].lei. Used to connect explicit successors and load their records.
+- Entity.SuccessorEntity.n.SuccessorEntityName -> entities.successors_json[].name. Context only.
+
+For each Entity.LegalEntityEvents.LegalEntityEvent.n. prefix:
+
+| CSV suffix | events_json property | Usage |
+| --- | --- | --- |
+| LegalEntityEventType | type | Rule and evidence |
+| LegalEntityEventEffectiveDate | effectiveDate | Rule and evidence |
+| event_status | status | Rule and evidence |
+| LegalEntityEventRecordedDate | recordedDate | Evidence only |
+| ValidationDocuments | validationDocuments | Evidence only |
+
+An alias needs a non-empty name. An event needs a non-empty event type. A successor needs an LEI or a name. Empty items are not added, so JSON array positions need not match source slot numbers. A missing alias type falls back to OTHER_NAME.
+
+### Extra entity fields
+
+Every non-empty field matching these importer prefixes is retained under its original CSV key in entity_details.details_json. The evidence builder passes this map in GLEIF_ENTITY_DETAILS, GLEIF_CANDIDATE_ENTITY_DETAILS, and relevant related-entity context. These are context fields, not separate deterministic matching rules. Legal-address country is also used by the core country cross-check.
+
+- Entity.LegalAddress.
+- Entity.HeadquartersAddress.
+- Entity.OtherAddresses.
+- Entity.TransliteratedOtherAddresses.
+- Entity.LegalForm.
+- Entity.AssociatedEntity.
+- Entity.EntitySubCategory
+- Entity.EntityCreationDate
+- Entity.EntityExpirationDate
+- Entity.EntityExpirationReason
+- Registration.InitialRegistrationDate
+- Registration.ManagingLOU
+- Registration.ValidationSources
+- Registration.ValidationAuthority.
+- Registration.OtherValidationAuthorities.
+- ConformityFlag
+
+Examples of exact keys: Entity.LegalAddress.FirstAddressLine, Entity.LegalAddress.City, Entity.LegalAddress.PostalCode, Entity.HeadquartersAddress.Country, Entity.LegalForm.EntityLegalFormCode, Entity.EntityCreationDate, Registration.ValidationAuthority.ValidationAuthorityID. All numbered address and validation fields are expanded in the CSV.
+
+Not retained from lei2: legal-name/alias language tags, successor language tags, Entity.RegistrationAuthority.OtherRegistrationAuthorityID, and event group identifiers, sequence values, affected fields and validation references. Some are selected while reading a row, but the importer does not write them to SQLite. Reading a column is not the same as retaining it.
+
+## 2. Relationships: rr
+
+All non-empty values from all 54 source columns are kept in relationships.details_json, using the original CSV keys. Five fields are also mapped to named columns:
+
+| Exact CSV field | Named SQLite field | Purpose |
+| --- | --- | --- |
+| Relationship.StartNode.NodeID | relationships.child_lei | Starting entity; used to retrieve outgoing relationships. |
+| Relationship.EndNode.NodeID | relationships.parent_lei | Other endpoint; used for direct links, shared ultimate parents and related-entity lookups. |
+| Relationship.RelationshipType | relationships.kind | Distinguishes consolidation from branch/fund relationships; selects direct and ultimate consolidation rules. |
+| Relationship.RelationshipStatus | relationships.relationship_status | ACTIVE is required by the current-conclusion rule. |
+| Registration.RegistrationStatus | relationships.registration_status | PUBLISHED is required by the current-conclusion rule. |
+
+The names child_lei and parent_lei are local storage names. For a fund or branch relationship, interpret the endpoints using Relationship.RelationshipType; the end node is not automatically an owner.
+
+The following retained fields are explicitly selected into datesAndValidation:
+- Relationship.Period.n.startDate
+- Relationship.Period.n.endDate
+- Relationship.Period.n.periodType
+- Registration.LastUpdateDate
+- Registration.NextRenewalDate
+- Registration.ValidationSources
+- Registration.ValidationDocuments
+
+Here n is 1 to 5. The period type, relationship-period bounds, accounting-period end and next renewal date feed the eligibility checks. Update date and validation values are context.
+
+Retained but not selected into current relationship evidence: Relationship.StartNode.NodeIDType, Relationship.EndNode.NodeIDType, all Relationship.Qualifiers.*, all Relationship.Quantifiers.*, Registration.InitialRegistrationDate, Registration.ManagingLOU and Registration.ValidationReference. Storage of a quantifier does not mean the application uses it as an ownership percentage.
+
+## 3. Reporting exceptions: repex
+
+| Exact CSV field | SQLite destination | Purpose |
+| --- | --- | --- |
+| LEI | exceptions.lei | Entity lookup |
+| Exception.Category | exceptions.category | Parent-reporting category |
+| Exception.Reason.1 through Exception.Reason.5 | exceptions.reasons_json[] | Non-empty reasons, in source order |
+
+Exception.Reference.1 through Exception.Reference.5 are not retained. Exceptions are included in GLEIF_PARENT_EXCEPTION and candidate context. They do not prove that two entities are unrelated.
+
+## 4. What is derived rather than downloaded?
+
+- names.id: generated locally.
+- names.normalized: derived from the legal or alias name. Used for indexed lookup.
+- names.kind = LEGAL_NAME: a local label for the primary name. Alias kinds come from the CSV.
+- Match status, similarity score, cross-check messages and eligibleForCurrentConclusion: calculated by our code.
+- sources.url, sources.sha256, record and byte counts: loaded from the frozen import manifest and verified during a full import.
+- metadata.snapshotAtUtc: the manifest publication timestamp. It is not an entity CSV column.
+- metadata.schemaVersion, import time and completion flag: local preparation metadata.
+- Internal company IDs, CRDS IDs, Booking Codes and Settlement Routing IDs: internal inputs. They are not provided by these three GLEIF CSVs.
+
+## 5. Which fields affect a current conclusion?
+
+- A supplied LEI or a unique authority-plus-registry-ID match can confirm identity. A supplied jurisdiction is checked when present. Name search alone returns candidates.
+- Same confirmed LEI supports the same-entity check.
+- Direct/ultimate consolidation and shared ultimate-parent checks use both endpoint IDs and the relationship type.
+- Current consolidation eligibility checks ACTIVE relationship status, PUBLISHED relationship registration, next renewal, and the period fields. It also checks entity ACTIVE/ISSUED status and entity renewal.
+- The catalog must be no more than 31 days old and not future-dated. A qualifying accounting period must end no more than 730 days before the catalog date. These are application thresholds, not GLEIF field definitions.
+- Explicit successor evidence uses SuccessorLEI. The merger interpretation also requires a COMPLETED MERGERS_AND_ACQUISITIONS event with an effective date at or before the catalog date.
+- The AI result validator checks the evidence kind and eligibility flag. Imported context does not automatically become proof.
+
+## 6. Code locations and verification
+
+- tools/gleif/import_gleif.py: schema, retention rules and field mapping.
+- tools/gleif/download_gleif.py: publication selection and source downloads.
+- prototype/src/main/java/com/db/clientinsights/gleif/GleifCatalog.java: SQLite reads and identity matching.
+- prototype/src/main/java/com/db/clientinsights/gleif/GleifRecord.java: mapped Java records.
+- prototype/src/main/java/com/db/clientinsights/parents/GleifParentEvidence.java: fields passed to the review and eligibility checks.
+- prototype/src/main/java/com/db/clientinsights/parents/ParentRelationshipAdvisor.java: allowed evidence for AI conclusions.
+
+Validation: all 404 source header columns were checked against an in-memory run of the real importer with synthetic marked values. Every retained field and storage path matched the generated inventory. Java consumers were read, not executed. This is not a full source-data scan, a new production import or remote deployment validation. No application code was changed.
+
