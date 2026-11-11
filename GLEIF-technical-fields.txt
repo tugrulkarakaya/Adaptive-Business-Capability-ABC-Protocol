@@ -4,16 +4,16 @@ Checked: 11 November 2026.
 
 This file lists the GLEIF CSV files and exact column names we use. It explains what each field is used for. GLEIF-field-map.csv has one row for each source column, with its source CSV, usage and purpose. It also identifies fields we save without using and fields we do not save.
 
-The source files are from the saved GLEIF publication dated 15 October 2026, 08:00 UTC. Usage was checked against our local implementation on 11 November 2026. This does not confirm which version is running on the remote machine.
+The source files are from the saved GLEIF publication dated 15 October 2026, 08:00 UTC. These usage notes describe the local version reviewed on 11 November 2026. This does not confirm which version is running on the remote machine.
 
 ## How to read the usage labels
 
-- KEY_AND_RULE: used for identity or relationship lookup/comparison, and available in evidence.
-- RULE_AND_EVIDENCE: read by a coded check and included in evidence.
-- LOOKUP_KEY: used to retrieve related records.
-- EVIDENCE_ONLY: passed to the reviewer/AI as context; no independent coded decision rule for that field.
-- STORED_ONLY: retained in the catalog, but not selected by the inspected evidence builder.
-- NOT_RETAINED: present in the source header, but not saved by this importer.
+- Identifier and checks: identifies records, supports comparisons and provides review context.
+- Checks and context: used in checks and provided as review context.
+- Related-record lookup: used to find related records.
+- Context only: provided to the reviewer or AI as background. It does not decide a match on its own.
+- Saved only: saved, but not currently used in the review.
+- Not saved: present in the source CSV, but not saved.
 
 Evidence is bounded and depends on which entities are reviewed. Inclusion in the catalog does not mean that every row is sent to AI. Candidate fields remain unconfirmed until identity is checked.
 
@@ -25,7 +25,7 @@ Evidence is bounded and depends on which entities are reviewed. Inclusion in the
 | rr | 54 | 54 | 0 |
 | repex | 12 | 7 | 5 |
 
-These are column counts in the saved publication, not populated values or company counts. The test checks import capability for each field; it does not claim that every field contains real data.
+These are column counts in the saved publication, not populated values or company counts. A saved field may be empty for some companies.
 
 - lei2: 20261015-0800-gleif-goldencopy-lei2-golden-copy.csv
   Source URL: https://leidata-preview.gleif.org/storage/golden-copy-files/2026/10/15/1288775/20261015-0800-gleif-goldencopy-lei2-golden-copy.csv.zip
@@ -42,17 +42,17 @@ These are the core identity fields. The names below are the original CSV column 
 
 | Exact CSV field | Usage | Purpose |
 | --- | --- | --- |
-| LEI | KEY_AND_RULE | Finds the entity, compares LEIs, and links relationship and successor records. |
-| Entity.LegalName | RULE_AND_EVIDENCE | Name candidate retrieval and internal-name cross-check; also shown as public identity. |
-| Entity.LegalJurisdiction | RULE_AND_EVIDENCE | Checks a supplied jurisdiction when confirming an LEI or registry match. |
-| Entity.LegalAddress.Country | RULE_AND_EVIDENCE | Compares legal-address country with the internal country observation; also retained in extended details. |
-| Entity.EntityCategory | EVIDENCE_ONLY | Entity category included in the public-identity evidence. |
-| Entity.EntityStatus | RULE_AND_EVIDENCE | ACTIVE is required for current consolidation conclusions. |
-| Registration.RegistrationStatus | RULE_AND_EVIDENCE | ISSUED is required for current consolidation conclusions. |
-| Entity.RegistrationAuthority.RegistrationAuthorityID | RULE_AND_EVIDENCE | Used together with the registry ID for an unambiguous identifier match. |
-| Entity.RegistrationAuthority.RegistrationAuthorityEntityID | RULE_AND_EVIDENCE | Registry identifier lookup, paired with the authority. |
-| Registration.LastUpdateDate | EVIDENCE_ONLY | Public record update date. Not a standalone freshness decision in the inspected entity code. |
-| Registration.NextRenewalDate | RULE_AND_EVIDENCE | Must be present and not before the catalog date for current consolidation conclusions. |
+| LEI | Identifier and checks | Finds the entity, compares LEIs, and links relationship and successor records. |
+| Entity.LegalName | Checks and context | Name candidate retrieval and internal-name cross-check; also shown as public identity. |
+| Entity.LegalJurisdiction | Checks and context | Checks a supplied jurisdiction when confirming an LEI or registry match. |
+| Entity.LegalAddress.Country | Checks and context | Compares legal-address country with the internal country observation; also retained in extended details. |
+| Entity.EntityCategory | Context only | Entity category included in the public-identity evidence. |
+| Entity.EntityStatus | Checks and context | ACTIVE is required for current consolidation conclusions. |
+| Registration.RegistrationStatus | Checks and context | ISSUED is required for current consolidation conclusions. |
+| Entity.RegistrationAuthority.RegistrationAuthorityID | Checks and context | Used together with the registry ID for an unambiguous identifier match. |
+| Entity.RegistrationAuthority.RegistrationAuthorityEntityID | Checks and context | Registry identifier lookup, paired with the authority. |
+| Registration.LastUpdateDate | Context only | Shows when the public record was updated. This date alone does not determine whether the record is current. |
+| Registration.NextRenewalDate | Checks and context | Must be present and not before the catalog date for current consolidation conclusions. |
 
 ### Repeated names, events and successors
 
@@ -161,19 +161,19 @@ Exception.Reference.1 through Exception.Reference.5 are not retained. Exceptions
 - Current consolidation eligibility checks ACTIVE relationship status, PUBLISHED relationship registration, next renewal, and the period fields. It also checks entity ACTIVE/ISSUED status and entity renewal.
 - The catalog must be no more than 31 days old and not future-dated. A qualifying accounting period must end no more than 730 days before the catalog date. These are application thresholds, not GLEIF field definitions.
 - Explicit successor evidence uses SuccessorLEI. The merger interpretation also requires a COMPLETED MERGERS_AND_ACQUISITIONS event with an effective date at or before the catalog date.
-- The AI result validator checks the evidence kind and eligibility flag. Imported context does not automatically become proof.
+- Background information alone does not prove a relationship.
 
 ## 6. How to find a field in the source CSV
 
 1. Open GLEIF-field-map.csv.
 2. Read source_csv to identify the GLEIF file.
 3. Read source_column for the exact header in that file.
-4. Read application_usage and purpose to see how we use it.
-5. retained=YES means we save the field. It does not necessarily mean we use it in a decision. STORED_ONLY identifies fields that we save without using in the current review.
+4. Read usage and purpose to see how we use it.
+5. retained=YES means we save the field. It does not necessarily mean we use it in a decision. Saved only identifies fields that we save without using in the current review.
 
 Examples:
 - 20261015-0800-gleif-goldencopy-lei2-golden-copy.csv -> Entity.LegalName -> company name search and comparison.
 - 20261015-0800-gleif-goldencopy-rr-golden-copy.csv -> Relationship.EndNode.NodeID -> the other entity in the relationship; interpret it with Relationship.RelationshipType.
 - 20261015-0800-gleif-goldencopy-repex-golden-copy.csv -> Exception.Reason.1 -> a reason parent information was not reported.
 
-Verification: all 404 documented column names were checked against the headers in the three saved source CSVs. The earlier import check used synthetic marked values to confirm which fields are saved. This is not a full scan of the source records or a remote deployment check. This update changes the documentation only.
+All 404 documented column names were checked against the headers in the three saved source CSVs. The usage notes distinguish fields we use, fields we only save, and fields we do not save.
