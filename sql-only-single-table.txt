@@ -1,0 +1,12 @@
+Export one table to CSV in SQL Developer
+
+Example: Contact Person
+
+cd Y:/work/your-checkout/icms/scripts/data-export
+@csv/export-sql-only.sql "Y:/exports/contact_person_full.csv" exports/01-contact-person.sql 1 0
+
+Replace the two Y: paths with your checkout and output paths.
+Create the output folder if needed and choose a new CSV filename.
+Select the intended database connection and press F5 (Run Script).
+
+1 0 means one batch, batch number 0. It exports all rows in that table.
